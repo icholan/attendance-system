@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Attendance — Admin Portal</title>
+    <meta name="description" content="QR-code based attendance management system for schools and academies" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🎓</text></svg>" />
+</head>
+
+<body>
+    <div class="app">
+        <!-- ─── Mobile Menu ─────────────────────────────────────────────── -->
+        <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+        <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+        <!-- ─── Sidebar ──────────────────────────────────────────────────── -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <h1>QR Attendance</h1>
+                <p>School Management</p>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
+                    <span class="icon">📊</span> Dashboard
+                </div>
+                <div class="nav-item" data-page="students" onclick="switchPage('students')">
+                    <span class="icon">👩‍🎓</span> Students
+                </div>
+                <div class="nav-item" data-page="attendance" onclick="switchPage('attendance')">
+                    <span class="icon">📋</span> Attendance
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="scanner.html" class="scanner-btn" target="_blank">
+                    <span>📱</span> Open Scanner
+                </a>
+            </div>
+        </aside>
+
+        <!-- ─── Main Content ─────────────────────────────────────────────── -->
+        <main class="main">
+
+            <!-- ═══ Dashboard ══════════════════════════════════════════════ -->
+            <section id="page-dashboard" class="page-section active">
+                <div class="page-header">
+                    <h2>Dashboard</h2>
+                    <p>Today's attendance overview</p>
+                </div>
+
+                <div class="stats-grid" id="stats-grid">
+                    <div class="card stat-card">
+                        <div class="stat-icon purple">👩‍🎓</div>
+                        <div class="stat-value" id="stat-total">—</div>
+                        <div class="stat-label">Total Students</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-icon green">✅</div>
+                        <div class="stat-value" id="stat-present">—</div>
+                        <div class="stat-label">Present Today</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-icon orange">🚪</div>
+                        <div class="stat-value" id="stat-out">—</div>
+                        <div class="stat-label">Checked Out</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-icon red">❌</div>
+                        <div class="stat-value" id="stat-absent">—</div>
+                        <div class="stat-label">Absent Today</div>
+                    </div>
+                </div>
+
+                <div class="chart-grid">
+                    <div class="card">
+                        <div class="card-title">7-Day Attendance Trend</div>
+                        <div class="chart-container" id="trend-chart"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">By Grade (Today)</div>
+                        <div class="grade-list" id="grade-breakdown"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Recent Scans</div>
+                    <div class="activity-list" id="recent-activity"></div>
+                </div>
+            </section>
+
+            <!-- ═══ Students ═══════════════════════════════════════════════ -->
+            <section id="page-students" class="page-section">
+                <div class="page-header">
+                    <h2>Students</h2>
+                    <p>Manage student records and QR codes</p>
+                </div>
+
+                <div class="toolbar">
+                    <div class="search-wrapper">
+                        <input type="text" class="search-input" id="student-search" placeholder="Search students..."
+                            oninput="debounceStudentSearch()" />
+                    </div>
+                    <select id="student-grade-filter" onchange="loadStudents()">
+                        <option value="">All Grades</option>
+                        <option value="8">Grade 8</option>
+                        <option value="9">Grade 9</option>
+                        <option value="10">Grade 10</option>
+                        <option value="11">Grade 11</option>
+                        <option value="12">Grade 12</option>
+                    </select>
+                    <div style="flex:1"></div>
+                    <button class="btn btn-primary" onclick="openStudentModal()">
+                        <span>+</span> Add Student
+                    </button>
+                </div>
+
+                <div class="card">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Grade</th>
+                                    <th>Section</th>
+                                    <th>QR Code</th>
+                                    <th>Guardian</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="students-table-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="empty-state" id="students-empty" style="display:none">
+                        <div class="icon">👩‍🎓</div>
+                        <p>No students found. Add your first student to get started.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ Attendance ═════════════════════════════════════════════ -->
+            <section id="page-attendance" class="page-section">
+                <div class="page-header">
+                    <h2>Attendance Records</h2>
+                    <p>View and export attendance data</p>
+                </div>
+
+                <div class="toolbar">
+                    <div class="toolbar-group">
+                        <label style="font-size:12px;color:var(--text-muted);font-weight:600">DATE</label>
+                        <input type="date" id="attendance-date" onchange="loadAttendance()" />
+                    </div>
+                    <select id="attendance-grade-filter" onchange="loadAttendance()">
+                        <option value="">All Grades</option>
+                        <option value="8">Grade 8</option>
+                        <option value="9">Grade 9</option>
+                        <option value="10">Grade 10</option>
+                        <option value="11">Grade 11</option>
+                        <option value="12">Grade 12</option>
+                    </select>
+                    <div style="flex:1"></div>
+                    <button class="btn btn-secondary" onclick="exportAttendance()">
+                        📥 Export CSV
+                    </button>
+                </div>
+
+                <div class="card">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Grade</th>
+                                    <th>Date</th>
+                                    <th>Time In</th>
+                                    <th>Time Out</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendance-table-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="empty-state" id="attendance-empty" style="display:none">
+                        <div class="icon">📋</div>
+                        <p>No attendance records for the selected date.</p>
+                    </div>
+                    <div class="pagination" id="attendance-pagination"></div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ─── Student Modal ──────────────────────────────────────────────── -->
+    <div class="modal-overlay" id="student-modal">
+        <div class="modal">
+            <h3 id="modal-title">Add Student</h3>
+            <input type="hidden" id="student-id" />
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Full Name *</label>
+                    <input type="text" id="inp-name" placeholder="e.g. Aisha Rahman" />
+                </div>
+                <div class="form-group">
+                    <label>Grade *</label>
+                    <input type="text" id="inp-grade" placeholder="e.g. 10" />
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Section</label>
+                    <input type="text" id="inp-section" placeholder="e.g. A" />
+                </div>
+                <div class="form-group">
+                    <label>Guardian Phone</label>
+                    <input type="text" id="inp-phone" placeholder="e.g. +60-123-4567" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Guardian Name</label>
+                <input type="text" id="inp-guardian" placeholder="e.g. Fatima Rahman" />
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeStudentModal()">Cancel</button>
+                <button class="btn btn-primary" id="modal-save-btn" onclick="saveStudent()">Save Student</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── QR Modal ───────────────────────────────────────────────────── -->
+    <div class="modal-overlay" id="qr-modal">
+        <div class="modal" style="text-align:center">
+            <h3 id="qr-modal-title">Student QR Code</h3>
+            <div class="qr-preview" id="qr-preview-content"></div>
+            <div id="face-enroll-status" style="font-size:12px;color:var(--text-muted);margin-bottom:12px"></div>
+            <div class="modal-actions" style="justify-content:center;flex-wrap:wrap">
+                <button class="btn btn-secondary" onclick="closeQrModal()">Close</button>
+                <button class="btn btn-primary" onclick="downloadQr()">📥 Download PNG</button>
+                <a id="qr-card-link" class="btn btn-success" target="_blank">🪪 View ID Card</a>
+                <button class="btn btn-primary" onclick="openFaceEnroll()"
+                    style="background:linear-gradient(135deg,#00b894,#00d2a0)">📸 Enroll Face</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Face Enrollment Modal ──────────────────────────────────────── -->
+    <div class="modal-overlay" id="face-enroll-modal">
+        <div class="modal" style="text-align:center;max-width:480px">
+            <h3>📸 Enroll Face</h3>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px" id="face-enroll-name"></p>
+            <div style="position:relative;border-radius:12px;overflow:hidden;margin-bottom:16px;background:#111128">
+                <video id="enroll-video" autoplay muted playsinline
+                    style="width:100%;display:block;border-radius:12px"></video>
+                <canvas id="enroll-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%"></canvas>
+            </div>
+            <div id="enroll-status" style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Position face
+                in frame</div>
+            <div class="modal-actions" style="justify-content:center">
+                <button class="btn btn-secondary" onclick="closeFaceEnroll()">Cancel</button>
+                <button class="btn btn-primary" id="capture-face-btn" onclick="captureFace()"
+                    style="background:linear-gradient(135deg,#00b894,#00d2a0)">📸 Capture Face</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Toasts Container ──────────────────────────────────────────── -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="app.js"></script>
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebar-overlay').classList.toggle('active');
+        }
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebar-overlay').classList.remove('active');
+        }
+        // Close sidebar when a nav item is clicked on mobile
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                if (window.innerWidth <= 768) closeSidebar();
+            });
+        });
+    </script>
+</body>
+
+</html>

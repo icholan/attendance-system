@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>QR Scanner — Attendance</title>
+    <meta name="description" content="Scan student QR codes to record attendance" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>📱</text></svg>" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #0a0a1a;
+            color: #f0f0f8;
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -30%;
+            left: -20%;
+            width: 80%;
+            height: 80%;
+            background: radial-gradient(ellipse, rgba(108, 92, 231, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        /* ─── Header ─────────────────────────────────────────────────── */
+        .header {
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            position: relative;
+            z-index: 10;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #a29bfe, #00d2a0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header a {
+            color: #8888aa;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .header a:hover {
+            color: #f0f0f8;
+        }
+
+        /* ─── Scanner Area ───────────────────────────────────────────── */
+        .scanner-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        #reader {
+            width: 100%;
+            max-width: 400px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid rgba(108, 92, 231, 0.3);
+            box-shadow: 0 0 40px rgba(108, 92, 231, 0.15);
+            background: #111128;
+        }
+
+        #reader video {
+            border-radius: 14px;
+        }
+
+        .scan-instructions {
+            margin-top: 20px;
+            text-align: center;
+            color: #8888aa;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .scan-instructions .icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        /* ─── Mode Toggle ────────────────────────────────────────────── */
+        .mode-toggle {
+            display: flex;
+            gap: 4px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .mode-btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: #8888aa;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s;
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, #6c5ce7, #8b5cf6);
+            color: white;
+            box-shadow: 0 4px 16px rgba(108, 92, 231, 0.3);
+        }
+
+        /* ─── Face Section ───────────────────────────────────────────── */
+        .face-section {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .face-section.active {
+            display: flex;
+        }
+
+        .face-video-container {
+            position: relative;
+            width: 100%;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid rgba(108, 92, 231, 0.3);
+            box-shadow: 0 0 40px rgba(108, 92, 231, 0.15);
+            background: #111128;
+        }
+
+        .face-video-container video {
+            width: 100%;
+            display: block;
+            border-radius: 14px;
+        }
+
+        .face-video-container canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .face-status {
+            margin-top: 16px;
+            text-align: center;
+            font-size: 14px;
+            color: #8888aa;
+            font-weight: 500;
+        }
+
+        .face-status .loading {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* ─── Result Card ────────────────────────────────────────────── */
+        .result-card {
+            position: fixed;
+            bottom: -300px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 420px;
+            border-radius: 20px;
+            padding: 28px;
+            text-align: center;
+            transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .result-card.show {
+            bottom: 30px;
+        }
+
+        .result-card.success {
+            background: rgba(0, 180, 148, 0.15);
+            border: 1px solid rgba(0, 210, 160, 0.3);
+        }
+
+        .result-card.error {
+            background: rgba(255, 107, 107, 0.15);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+
+        .result-card.info {
+            background: rgba(108, 92, 231, 0.15);
+            border: 1px solid rgba(108, 92, 231, 0.3);
+        }
+
+        .result-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            display: block;
+            animation: popIn 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+
+        @keyframes popIn {
+            0% {
+                transform: scale(0);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .result-name {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            letter-spacing: -0.5px;
+        }
+
+        .result-detail {
+            font-size: 14px;
+            color: #aaa;
+            margin-bottom: 4px;
+        }
+
+        .result-action {
+            font-size: 16px;
+            font-weight: 700;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .result-action.in {
+            color: #00d2a0;
+        }
+
+        .result-action.out {
+            color: #fdcb6e;
+        }
+
+        .result-time {
+            font-size: 28px;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            margin-top: 4px;
+            background: linear-gradient(135deg, #f0f0f8, #a29bfe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* ─── Manual Input ───────────────────────────────────────────── */
+        .manual-input {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .manual-input.active {
+            display: flex;
+        }
+
+        .manual-field {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 16px 20px;
+            font-size: 18px;
+            font-family: 'Inter', monospace;
+            color: #f0f0f8;
+            text-align: center;
+            letter-spacing: 3px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .manual-field:focus {
+            border-color: #6c5ce7;
+            box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.3);
+        }
+
+        .manual-submit {
+            padding: 14px 40px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #6c5ce7, #8b5cf6);
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .manual-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(108, 92, 231, 0.3);
+        }
+
+        /* Override html5-qrcode styles */
+        #reader img {
+            display: none;
+        }
+
+        #reader__dashboard {
+            padding: 12px !important;
+        }
+
+        #reader__dashboard_section_swaplink {
+            color: #a29bfe !important;
+            text-decoration: none !important;
+        }
+
+        #reader__scan_region {
+            min-height: 280px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>📱 QR Scanner</h1>
+        <a href="/">← Admin Portal</a>
+    </div>
+
+    <div class="scanner-area">
+        <div class="mode-toggle">
+            <button class="mode-btn active" id="btn-camera" onclick="switchMode('camera')">📷 Camera</button>
+            <button class="mode-btn" id="btn-manual" onclick="switchMode('manual')">⌨️ Manual</button>
+            <button class="mode-btn" id="btn-face" onclick="switchMode('face')">👤 Face</button>
+        </div>
+
+        <div id="camera-section">
+            <div id="reader"></div>
+            <div class="scan-instructions">
+                <span class="icon">📸</span>
+                Point the camera at a student's QR code
+            </div>
+        </div>
+
+        <div class="manual-input" id="manual-section">
+            <div class="scan-instructions" style="margin-top:0;margin-bottom:8px">
+                <span class="icon">⌨️</span>
+                Type or paste the QR code value
+            </div>
+            <input type="text" class="manual-field" id="manual-code" placeholder="STU-XXXXXXXX" autofocus />
+            <button class="manual-submit" onclick="submitManualCode()">Submit</button>
+        </div>
+
+        <div class="face-section" id="face-section">
+            <div class="face-video-container">
+                <video id="face-video" autoplay muted playsinline></video>
+                <canvas id="face-canvas"></canvas>
+            </div>
+            <div class="face-status" id="face-status">
+                <span class="icon">👤</span>
+                <p class="loading">Loading face recognition models...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="result-card" id="result-card">
+        <span class="result-icon" id="result-icon"></span>
+        <div class="result-name" id="result-name"></div>
+        <div class="result-detail" id="result-detail"></div>
+        <div class="result-action" id="result-action"></div>
+        <div class="result-time" id="result-time"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="scanner.js"></script>
+</body>
+
+</html>
